@@ -1,0 +1,75 @@
+#!/bin/sh
+#
+#####################################################
+#
+# Solaris style ptree
+#
+#####################################################
+#
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Copyright © 2024 Zoff
+# Copyright © 2020 "MadeInGermany" https://www.unix.com/member_modal.php?u=302116191
+#
+#####################################################
+#
+# found on this site: https://www.unix.com/unix-for-advanced-and-expert-users/283569-tip-ptree-linux.html
+# thanks to "MadeInGermany"
+#
+# Last edited by "MadeInGermany"; 01-16-2020 at 04:40 AM
+#
+#
+# since i did not find any license, i am assuming GPLv3
+#
+# if you think this is wrong, please put an issue on the github page
+#
+# https://github.com/zoff99/solaris_ptree_for_linux
+#
+#####################################################
+#
+[ -x /usr/bin/ptree ] && exec /usr/bin/ptree "$@"
+
+PATH=/bin:/usr/bin:/usr/sbin:/sbin
+export PATH
+
+case $1 in
+-*)
+ echo "
+Usage: ptree [ PID | USER ]
+Print process tree
+ PID : extract branch for this process
+ USER : filter for this (existing) user
+ USER PID : do both
+"
+ exit
+;;
+*[!0-9]*)
+ psopt="-u $1"
+ shift
+;;
+*)
+ psopt="-e"
+esac
+psopt="$psopt -H -o pid= -o args="
+
+if [ -z "$1" ]; then
+ ps $psopt
+ exit
+fi
+
+#some effort to add less to the ps list
+tmp=/tmp/ptree.$$
+trap 'rm -f $tmp' 0 HUP INT TERM
+ps $psopt >$tmp
+<$tmp awk '
+{ ci=index(substr($0,6),$2); o[ci]=$0 }
+ci>s[a] { s[++a]=ci }
+$1==pid {
+ for(i=1;i<=a;i++) {
+  si=s[i]; if(si<=ci) print o[si]
+ }
+ walkdown=ci
+ next
+}
+ci<=walkdown { exit }
+walkdown!=0 { print }
+' pid="$1"
